@@ -4,28 +4,32 @@ import time
 from typing import Annotated
 
 import aiofiles
-from fastapi import Depends, FastAPI, File, Form, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2_fragments.fastapi import Jinja2Blocks
 from PIL import Image
-from tinydb import TinyDB, Query
+from tinydb import TinyDB
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Blocks(directory="templates")
 
+
 def get_db():
     return TinyDB("db.json")
+
 
 PHOTOS_PER_PAGE = 3
 
 # Utility functions
 
+
 def get_sorted_photos(all_photos, current_photo_count, new_photo_count):
     return sorted(all_photos,
                   key=lambda d: datetime.strptime(d["uploaded_at"], "%m/%d/%Y %I:%M:%S%p"),
                   reverse=True)[current_photo_count:new_photo_count]
+
 
 def resize_image_for_web(photo_file_path):
     image_file = Image.open(f"static/{photo_file_path}")
@@ -37,6 +41,7 @@ def resize_image_for_web(photo_file_path):
 
 # FastAPI routes
 
+
 @app.get("/", response_class=HTMLResponse)
 def photo_journal(request: Request, db: TinyDB = Depends(get_db)):
     sorted_photos = get_sorted_photos(db.all(), 0, PHOTOS_PER_PAGE)
@@ -46,6 +51,7 @@ def photo_journal(request: Request, db: TinyDB = Depends(get_db)):
         "photo_count": PHOTOS_PER_PAGE,
     }
     return templates.TemplateResponse(name="photo_journal.html.jinja2", context=context)
+
 
 @app.post("/post-photo", response_class=HTMLResponse)
 async def post_photo(request: Request, entry: Annotated[str, Form()], photo_upload: UploadFile,
@@ -74,4 +80,4 @@ async def post_photo(request: Request, entry: Annotated[str, Form()], photo_uplo
         "photo_count": PHOTOS_PER_PAGE,
         "invalid_image_file": not valid_image_file,
     }
-    return templates.TemplateResponse(name="photo_journal.html.jinja2", context=context, block_name="photos")
+    return templates.TemplateResponse(request, name="photo_journal.html.jinja2", context=context, block_name="photos")
